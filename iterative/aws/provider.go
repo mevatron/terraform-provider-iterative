@@ -188,11 +188,33 @@ func ResourceMachineCreate(ctx context.Context, d *schema.ResourceData, m interf
 	sgID = *sgDesc.SecurityGroups[0].GroupId
 	vpcID = *sgDesc.SecurityGroups[0].VpcId
 
+	offerings, err := svc.DescribeInstanceTypeOfferings(context.TODO(), &ec2.DescribeInstanceTypeOfferingsInput{
+		LocationType: types.LocationTypeAvailabilityZone,
+		Filters: []types.Filter{
+			{
+				Name:   aws.String("instance-type"),
+				Values: []string{instanceType},
+			},
+		},
+	})
+	if err != nil {
+		return decodeAWSError(region, err)
+	}
+
+	var availableZoneLocations []string
+	for _, offering := range offerings.InstanceTypeOfferings {
+		availableZoneLocations = append(availableZoneLocations, *offering.Location)
+	}
+
 	subDesc, err := svc.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{
 		Filters: []types.Filter{
 			{
 				Name:   aws.String("vpc-id"),
 				Values: []string{vpcID},
+			},
+			{
+				Name:   aws.String("availability-zone"),
+				Values: availableZoneLocations,
 			},
 		},
 	})
